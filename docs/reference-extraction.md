@@ -5,7 +5,7 @@ Sources read for this implementation:
 - `B.Tech.Project. (1).pdf`: *Carbon Footprint Assessment of Construction Projects*, B.Tech Project 2026, Sarvajanik University, Surat (Chapters 1–6).
 - `Chapters_7_to_14_BIM_Carbon_Footprint.pdf`: BIM-based assessment (Chapters 7–14).
 
-The PDFs are not included in this repository. Add them under `docs/` if reviewers need to verify the values below. Every value here is encoded in `src/lib/engine/factors.ts` and `src/lib/engine/sample.ts`.
+The PDFs are not included in this repository. Add them under `docs/` if examiners need to verify the values below. Every value here is encoded in `src/lib/engine/factors.ts` and `src/lib/engine/sample.ts`.
 
 ## Emission factors
 

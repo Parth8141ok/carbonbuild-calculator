@@ -16,7 +16,10 @@ export default function Home() {
       <section className="border-b border-line">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 xl:grid-cols-[1fr_1.15fr] lg:py-20">
           <div className="flex flex-col justify-center">
-            <p className="text-sm font-semibold text-leaf">Measure. Understand. Reduce.</p>
+            <p className="w-fit rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-muted">
+              B.Tech Civil Engineering Project 2026 · SCET, Sarvajanik University, Surat
+            </p>
+            <p className="mt-4 text-sm font-semibold text-leaf">Measure. Understand. Reduce.</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">The carbon footprint of building construction, calculated transparently.</h1>
             <p className="mt-5 max-w-xl text-lg text-ink-muted">
               Enter material quantities, waste allowances, deliveries and machine hours. CarbonBuild calculates construction-stage emissions,

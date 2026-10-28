@@ -181,7 +181,7 @@ Transport emissions  = tonne-km × factor (kg CO₂e per tonne-km)`}</Formula>
           <li>No overall confidence score is given. The data-quality panel shows how much of the result rests on measured, user-provided, estimated and assumed data, and how sensitive the total is to the main assumptions.</li>
           <li>Projects are stored only in your browser&apos;s local storage. There are no user accounts.</li>
           <li>
-            CarbonBuild is an estimation tool. It is not a substitute for a verified environmental product declaration, a professional life-cycle assessment, a structural engineering assessment or regulatory certification, and it does not claim compliance with any standard. EN 15978 module names are used to describe the boundary only.
+            CarbonBuild is an estimation tool developed as a college project for learning and academic evaluation. It is not a substitute for a verified environmental product declaration, a professional life-cycle assessment, a structural engineering assessment or regulatory certification, and it does not claim compliance with any standard. EN 15978 module names are used to describe the boundary only.
           </li>
           <li>Reduction scenarios do not check that a lower-carbon material or a smaller quantity is structurally suitable or safe. That must be confirmed by a qualified engineer.</li>
         </ul>

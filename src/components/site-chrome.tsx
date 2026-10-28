@@ -83,16 +83,16 @@ export function SiteFooter() {
         <div className="space-y-3">
           <Logo />
           <p className="max-w-sm text-sm text-ink-muted">
-            Measure. Understand. Reduce. A transparent estimator of construction-stage carbon emissions for building projects.
+            Measure. Understand. Reduce. A transparent estimator of construction-stage carbon emissions, developed as a B.Tech Civil Engineering project at SCET, Sarvajanik University, Surat (2026).
           </p>
         </div>
         <FooterCol title="Tool" links={[["/dashboard", "Dashboard"], ["/assess", "New project"], ["/results", "Results"], ["/projects", "My projects"], ["/reports", "Reports"]]} />
         <FooterCol title="Documentation" links={[["/methodology", "Methodology"], ["/methodology#reconciliation", "Reference reconciliation"], ["/methodology#limitations", "Limitations"], ["/materials", "Material library"], ["/factors", "Emission factors"]]} />
-        <FooterCol title="About" links={[["/about", "About & contact"], ["/settings", "Settings"], ["/privacy", "Privacy"], ["/disclaimer", "Disclaimer"]]} />
+        <FooterCol title="About" links={[["/about", "About the project"], ["/settings", "Settings"], ["/privacy", "Privacy"], ["/disclaimer", "Disclaimer"]]} />
       </div>
       <div className="border-t border-line">
         <p className="mx-auto max-w-7xl px-4 py-4 text-xs text-ink-subtle sm:px-6">
-          Estimates only. Results depend on the quantities and emission factors entered. CarbonBuild is not a certification or verification service.
+          Academic project for learning and demonstration. Results are estimates that depend on the quantities and emission factors entered; they are not intended for professional, commercial or compliance use.
         </p>
       </div>
     </footer>

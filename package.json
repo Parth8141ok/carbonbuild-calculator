@@ -2,6 +2,7 @@
   "name": "carbonbuild",
   "version": "0.1.0",
   "private": true,
+  "description": "CarbonBuild: construction carbon footprint calculator. B.Tech Civil Engineering project 2026, SCET, Sarvajanik University, Surat (college assignment).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

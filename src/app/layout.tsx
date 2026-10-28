@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · CarbonBuild",
   },
   description:
-    "Estimate the construction-stage carbon footprint of a building project: material wastage, transport and site machinery, with a full calculation audit trail.",
+    "A B.Tech Civil Engineering project (Sarvajanik University, Surat, 2026): estimate the construction-stage carbon footprint of a building project from material wastage, transport and site machinery, with a full calculation audit trail.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
