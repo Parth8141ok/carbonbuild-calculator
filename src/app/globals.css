@@ -63,7 +63,6 @@
   --color-danger-line: var(--danger-line);
   --color-info-soft: var(--info-soft);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 html {
@@ -100,13 +99,16 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 }
 
+
 @media print {
-  header,
-  footer,
   .no-print {
     display: none !important;
   }
   body {
     background: white;
+  }
+  header {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

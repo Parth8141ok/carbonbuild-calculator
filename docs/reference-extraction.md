@@ -5,9 +5,11 @@ Sources read for this implementation:
 - `B.Tech.Project. (1).pdf`: *Carbon Footprint Assessment of Construction Projects*, B.Tech Project 2026, Sarvajanik University, Surat (Chapters 1–6).
 - `Chapters_7_to_14_BIM_Carbon_Footprint.pdf`: BIM-based assessment (Chapters 7–14).
 
-The PDFs are not included in this repository. Add them under `docs/` if examiners need to verify the values below. Every value here is encoded in `src/lib/engine/factors.ts` and `src/lib/engine/sample.ts`.
+The PDFs are not included in this repository. Add them under `docs/` if examiners need to verify the values below. Every value here is encoded in `src/lib/calc.ts` (the default "report example" project).
 
 ## Emission factors
+
+The calculator takes each factor per unit of the quantity entered, so the report's per-kg factors are converted once: concrete 0.142 kg CO₂e/kg × 2,400 kg/m³ = 340.8 kg CO₂e per m³; slab concrete 0.138 × 2,400 = 331.2; foundation production 0.13 × 2,400 = 312 and disposal 0.012 × 2,400 = 28.8 per m³; clay brick 0.24 × 3 kg = 0.72 kg CO₂e per brick. Steel (1.92 per kg) and diesel (2.68 per litre) are used as they are.
 
 | Factor | Value | Boundary | Source location |
 |---|---:|---|---|
@@ -44,7 +46,7 @@ Conversion parameters (not emission factors): RCC density 2,400 kg/m³; 500 bric
 
 ## Reported totals and how the engine compares
 
-| Item | Report | Engine (full precision) |
+| Item | Report | Calculator (full precision) |
 |---|---:|---:|
 | Material wastage (excl. foundation) | 9,668.35 | 9,668.352 |
 | Logistics & machinery | 3,468.67 | 3,468.686 |
@@ -55,10 +57,10 @@ Conversion parameters (not emission factors): RCC density 2,400 kg/m³; 500 bric
 
 ## Discrepancies found in the sources
 
-1. **Foundation excluded from the master total.** Table 9.10 and the Chapter 4 compilation omit the 766.80 kg foundation calculation; §9.11 gives 13,903.82 as a sensitivity case. → Two calculation profiles; both totals always shown.
-2. **Ambiguous foundation scope.** B.Tech p.19 calls the 45 m³ the "slab/beam/column zone" of the foundation stage, which could overlap other volumes. → Flagged; kept as an optional profile.
-3. **Chapter 4 typos.** Columns & beams steel printed as "168 kg" (correct: 468 kg); plinth steel emission printed as 286.27 (correct: 105.60). Both are noted in BIM §9.11. → The engine calculates from the quantities.
-4. **Mislabelled Chapter 5 fuel step.** The "RMC" step shows the delivery-truck figures (1,800 km ÷ 3.5). → The sample uses BIM Table 9.9's vehicle groups.
-5. **Truncated diesel.** 514.2857 L is reported as 514.28 L. → The engine keeps full precision; the 0.0177 kg/bungalow difference is shown.
-6. **Brickwork rounding.** 68.8275 m³/floor is reported as 68.83; 206.50 m³ total (68.83 × 3 = 206.49). → The sample uses 206.50 m³; the estimator derives 206.4825 m³.
-7. **RMC trips exclude foundation concrete** (134 m³ → 20 trips), and the foundation sensitivity adds no extra deliveries. → Reproduced as reported; the estimator has an option to include it.
+1. **Foundation excluded from the master total.** Table 9.10 and the Chapter 4 compilation omit the 766.80 kg foundation calculation; §9.11 gives 13,903.82 as a sensitivity case. → The foundation row is in the table but unticked by default, so the total matches the master schedule; ticking it gives the sensitivity total, and the results note shows what it would add.
+2. **Ambiguous foundation scope.** B.Tech p.19 calls the 45 m³ the "slab/beam/column zone" of the foundation stage, which could overlap other volumes. → Kept as an optional (unticked) row; check the drawings before counting it.
+3. **Chapter 4 typos.** Columns & beams steel printed as "168 kg" (correct: 468 kg); plinth steel emission printed as 286.27 (correct: 105.60). Both are noted in BIM §9.11. → The calculator works from the quantities, so it uses 468 kg and 105.60 kg CO₂e.
+4. **Mislabelled Chapter 5 fuel step.** The "RMC" step shows the delivery-truck figures (1,800 km ÷ 3.5). → The example uses BIM Table 9.9's vehicle groups.
+5. **Truncated diesel.** 514.2857 L is reported as 514.28 L. → The calculator keeps full precision; the 0.0177 kg/bungalow difference is explained on the page.
+6. **Brickwork rounding.** 68.8275 m³/floor is reported as 68.83; 206.50 m³ total (68.83 × 3 = 206.49). → The example uses 206.50 m³ (103,250 bricks); computed from the dimensions it would be 206.4825 m³.
+7. **RMC trips exclude foundation concrete** (134 m³ → 20 trips), and the foundation sensitivity adds no extra deliveries. → Reproduced as reported.

@@ -1,10 +1,10 @@
-# CarbonBuild: Construction Carbon Footprint Calculator
+# CarbonBuild: Construction Carbon Calculator
 
 **B.Tech Civil Engineering Project 2026 · SCET, Sarvajanik University, Surat · college assignment**
 
 **Live website:** https://parth8141ok.github.io/carbonbuild-calculator/
 
-CarbonBuild is the software part of the B.Tech project *Carbon Footprint Assessment of Construction Projects*. It estimates the construction-stage carbon footprint of a building from material quantities, waste allowances, transport and site machinery, and shows the formula and numbers behind every result. Its method and reference data come from the project report and its BIM chapters (Chapters 7–14).
+CarbonBuild is the software part of the B.Tech project *Carbon Footprint Assessment of Construction Projects*. It is one simple page: enter your project's materials, waste, transport and site equipment, and it shows the carbon footprint in kg CO₂e, with a waste-reduction scenario. It opens with the report's example (ten three-storey bungalows at Surat), so the result can be compared with the report straight away.
 
 It was built for learning and academic evaluation, not for professional, commercial or compliance use.
 
@@ -14,50 +14,34 @@ It was built for learning and academic evaluation, not for professional, commerc
 - Guide: Prof. Mitali Shah
 - Department of Civil Engineering, Sarvajanik College of Engineering & Technology (SCET), Sarvajanik University, Surat
 
-## Quick tour for examiners
+## How to use it
 
-1. Open the live website and go to **Dashboard → Load sample project** (ten three-storey RCC bungalows at Surat, from the report).
-2. The results page shows **131,370.38 kg CO₂e** for the ten bungalows, calculated from the report's quantities and factors.
-3. **Calculation table**: select any row to see its formula, substitution and result.
-4. **What-if scenarios → Report measures** recalculates the report's illustrative reductions (about **35%**).
-5. **Methodology → Reference reconciliation** compares every component with the report's master schedule.
-6. **Reports & export** downloads a PDF report, an Excel workbook or a CSV of the calculation.
+The page has seven sections, top to bottom:
 
-## Where each part of the report appears
+1. **Project details**: name, location, number of identical buildings, built-up area per building.
+2. **Materials and waste**: quantity, waste %, production factor and waste-treatment factor per material. A **What-if waste %** column feeds the scenario. Untick *Count* to leave a row out of the totals.
+3. **Transport**: deliveries by fuel (trips × distance ÷ km per litre) or by tonne-km.
+4. **Site equipment**: hours × litres per hour × fuel factor, plus any other emissions.
+5. **Results**: total, per building, per m², and bar charts by source and by material.
+6. **Waste-reduction scenario**: what-if waste, transport and equipment reductions, with the saving. *Use the report's three measures* recalculates the report's illustrative case (about 35%).
+7. **Checks and export**: warnings about missing or odd inputs; CSV, JSON and Print / Save PDF.
 
-| Report | Topic | In the website |
-|---|---|---|
-| Ch. 1 | Project data (10 bungalows, Surat) | Sample project |
-| Ch. 3 | Materials and base carbon factors | Emission factors page |
-| Ch. 4 | Material waste by construction stage | Assessment → step 3 (Materials) |
-| Ch. 5 | Transportation and machinery fuel | Assessment → step 4 |
-| Ch. 6 | Cumulative footprint and shares | Results → Overview |
-| Ch. 7–9 | BIM parameters and schedules | Results → Calculation table; CSV take-off import |
-| Ch. 9.11 | Validation and foundation sensitivity | Methodology → Reference reconciliation; calculation profiles |
-| Ch. 11 | Results and what-if scenarios | Results → What-if scenarios |
-| Ch. 13 | Limitations and assumptions | Methodology → Limitations; Results → Data quality |
-| Ch. 14 | Recommendations | Results → Where to act first |
+Entries are saved in the browser automatically. *Load the report example* and *Start a blank project* reset the page.
 
-## Features
+## Formulas
 
-- **Dashboard** with each project's total, intensity and warnings.
-- **Assessment wizard** (5 steps, saved automatically): project details, three input modes (quick estimate, material-based, detailed), materials by construction stage, transport and machinery, review.
-- **Calculation engine** (`src/lib/engine`), separate from the user interface:
-  - Converts volume to mass with density, and brickwork through bricks per m³ and mass per brick.
-  - Wasted mass = total mass × waste %; waste emissions = wasted mass × emission factor. These are split into production of wasted material (A1–A3) and waste treatment and disposal (C2–C4).
-  - Optional production of installed material (the "expanded boundary").
-  - Transport by fuel (trips × distance ÷ km/L, or measured litres) or by tonne-km. Machinery by hours × litres per hour, or measured litres.
-  - Guards against double counting: overlapping factor boundaries are rejected, cement inside concrete is not counted twice, and duplicate entries are flagged.
-- **Quantity estimator** that derives quantities from building dimensions and labels anything taken from the reference bungalow as *assumed*.
-- **Material library** and **emission-factor library** recording each factor's source, boundary and status.
-- **Results**: totals in kg and tonnes CO₂e, per m² and per building; charts with table views; data quality and sensitivity.
-- **What-if scenarios** for waste rates, quantities, fuel, distances and alternative factors.
-- **Reports**: PDF, Excel, CSV and a project file.
-- **Projects and settings**: duplicate, archive, saved versions, backup and restore.
+All quantities are per building and are multiplied by the number of buildings at the end.
 
-## Reference reconciliation
+- Material waste = quantity × waste % ÷ 100 × (production factor + waste-treatment factor)
+- Transport (fuel) = trips × distance ÷ km per litre × kg CO₂e per litre; (tonne-km) = trips × distance × load × factor
+- Equipment = hours × litres per hour × kg CO₂e per litre
+- Per m² = total ÷ (area per building × number of buildings); 1,000 kg = 1 tonne
 
-The sample is calculated by the same engine as any other project. At full precision it gives **13,137.04 kg CO₂e per bungalow** (131,370.38 for ten), against the report's 13,137.02 (131,370.20). The 0.02 kg difference comes from the report rounding the delivery-truck diesel down to 514.28 L (1,800 ÷ 3.5 = 514.2857). The report's foundation-inclusive sensitivity (13,903.82) has a different scope, so it is a separate calculation profile. Neither published total is hard-coded. Other inconsistencies found in the report (typing errors, rounding, the excluded foundation stage) are listed on the Methodology page and in `docs/reference-extraction.md`.
+Each factor is per unit of the quantity, so the units must match (a per-m³ factor for a quantity in m³). Blank, invalid and negative entries count as 0 and are listed under Checks. Nothing is rounded during the calculation.
+
+## Reference example and reconciliation
+
+The page opens with the report's quantities, waste rates, factors and fuel data (BIM chapters, Tables 9.2, 9.3 and 9.9). It gives **13,137.04 kg CO₂e per bungalow** (131,370.38 for ten, 39.81 kg/m²), against the report's 13,137.02 (131,370.20). The 0.02 kg difference comes from the report rounding the delivery-truck diesel down to 514.28 L (1,800 ÷ 3.5 = 514.2857). The report's master total leaves out the foundation stage, so that row is unticked; with it the result is 13,903.84 (report: 13,903.82). The totals are calculated from the inputs, never copied. `docs/reference-extraction.md` lists every value with its table and the inconsistencies found in the report.
 
 ## Running it locally
 
@@ -83,39 +67,34 @@ No environment variables, API keys, database or paid services are needed.
 
 ## Tests
 
-73 automated tests (`src/lib/engine/*.test.ts`, `src/lib/export/export.test.ts`) check the following:
-- the formulas, unit conversions and waste calculations;
-- transport (fuel and tonne-km) and machinery;
-- totals per m² and per building;
-- missing, zero and negative inputs;
-- double counting;
-- scenarios;
-- the reconciliation with the report;
-- the CSV, Excel and PDF exports.
+20 automated tests in `src/lib/calc.test.ts` check:
+- every element of the report's master schedule, the wastage subtotal, the totals and the 73.6% / 26.4% split;
+- the foundation row (left out, then counted);
+- the report's three reduction measures (about 35%) and the cost saving;
+- blank, negative and over-100% inputs, and missing fuel economy or equipment rate (not guessed);
+- fuel and tonne-km transport, and the number of buildings;
+- the CSV export and restoring saved data.
 
 ## Project structure
 
 ```
 src/
-  app/                 Pages: / dashboard assess results projects materials factors reports methodology settings about privacy disclaimer
-  components/          User interface (assess/ wizard steps, results/ dashboard tabs, charts, ui/ building blocks)
-  lib/
-    engine/            Calculation engine, factor dataset, estimator, scenarios, reference sample, tests
-    export/            CSV, Excel and PDF builders (+ tests)
-    store.ts           Saved projects (browser local storage)
-docs/reference-extraction.md         Values taken from the project report, with table references
-scripts/preview-static.mjs           Local server for the built site
+  app/page.tsx                  The page
+  components/calculator.tsx     The calculator (all seven sections)
+  lib/calc.ts                   Calculation module: formulas, report example, CSV, no user-interface code
+  lib/calc.test.ts              Tests
+  lib/use-stored-state.ts       Saves entries in the browser
+docs/reference-extraction.md    Values taken from the report, with table references
+scripts/preview-static.mjs      Local server for the built site
 .github/workflows/deploy-pages.yml   Builds and publishes the site to GitHub Pages
 ```
 
 ## Hosting
 
-The website runs entirely in the browser, so it is built as a static site and hosted free on GitHub Pages. Every push to `main` runs lint, type check and tests, then republishes the site; it can also be run by hand from the repository's **Actions** tab. Projects are saved only in each visitor's browser (local storage), so nothing is shared between visitors.
+The page runs entirely in the browser, so it is built as a static site and hosted free on GitHub Pages. Every push to `main` runs lint, type check and tests, then republishes the site; it can also be run by hand from the repository's **Actions** tab. Entries are saved only in each visitor's browser, so nothing is shared between visitors. To check a Pages build locally: `MSYS_NO_PATHCONV=1 PAGES_BASE_PATH=/carbonbuild-calculator npm run build`, then `npm run preview -- --base=/carbonbuild-calculator`.
 
 ## Limitations and future scope
 
-- The default boundary is the construction stage only (wasted material, transport, machinery), as in the report. It is not a whole-life carbon assessment.
-- Emission factors are secondary values from the report, not supplier-specific EPDs. Illustrative factors (sand and aggregates, aluminium, glass, timber) have no cited source and are flagged wherever they are used.
-- The report gives no factor per tonne-km, so the tonne-km transport method needs a sourced factor to be added.
-- Revit and IFC models are not read directly; a take-off schedule can be imported as CSV.
-- Possible future work, following Chapter 14 of the report: direct BIM model integration, local EPD data for Surat suppliers, measured site fuel data, and whole-life (operational and end-of-life) assessment.
+- The boundary is material waste, transport and equipment fuel only, as in the report. It does not include the material that stays in the building, nor its use or demolition, so it is not a whole-life assessment.
+- The factors are secondary values from the report, not supplier-specific data. Check any factor you add against its source and unit.
+- Possible future work, following Chapter 14 of the report: reading BIM take-off schedules directly, local EPD data for Surat suppliers, measured site fuel data, and whole-life assessment.
