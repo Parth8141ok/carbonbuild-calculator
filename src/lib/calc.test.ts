@@ -176,3 +176,204 @@ describe("export and stored data", () => {
     expect(sanitizeState({ materials: [{ qty: 5 }], transport: [] }).materials[0].qty).toBe("5");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Operational carbon: electricity, fuel and water
+// ---------------------------------------------------------------------------
+
+import { newElectricity, newFuel, newWater, sanitizeOperational, toKWh, toM3, type ElectricityRecord } from "./calc";
+
+/** The report example with operational records filled in. Count 10, 330 m² per building. */
+function withOperation(patch: (s: State) => void): State {
+  const s = referenceState();
+  s.operational.electricity = [];
+  patch(s);
+  return s;
+}
+const elec = (over: Partial<ElectricityRecord>): ElectricityRecord => ({ ...newElectricity(), ...over });
+
+describe("operational electricity", () => {
+  it("emissions = kWh × factor (12,000 kWh/year × 0.43 = 5,160 kg per building)", () => {
+    const s = withOperation((x) => (x.operational.electricity = [elec({ amount: "12000", factor: "0.43" })]));
+    const o = calculate(s).operational;
+    near(o.electricityPerYear, 5160);
+    near(o.perYearAll, 51600); // × 10 buildings
+    near(o.totalAll, 51600); // 1 year
+  });
+
+  it("converts MWh to kWh", () => {
+    expect(toKWh(12, "MWh")).toBe(12000);
+    const s = withOperation((x) => (x.operational.electricity = [elec({ amount: "12", unit: "MWh", factor: "0.43" })]));
+    near(calculate(s).operational.electricityPerYear, 5160);
+  });
+
+  it("normalises month, quarter and year to one year, and never scales an annual value", () => {
+    const annual = (amount: string, period: "month" | "quarter" | "year") => calculate(withOperation((x) => (x.operational.electricity = [elec({ amount, period })]))).operational.electricity[0].annualAmount;
+    expect(annual("1000", "month")).toBe(12000);
+    expect(annual("3000", "quarter")).toBe(12000);
+    expect(annual("12000", "year")).toBe(12000);
+  });
+
+  it("totals several records, including a documented renewable source with a zero factor", () => {
+    const s = withOperation((x) => (x.operational.electricity = [elec({ amount: "10000", factor: "0.43" }), elec({ name: "Rooftop solar", supply: "renewable", amount: "2000", factor: "0", source: "Meter readings, 2026" })]));
+    const r = calculate(s);
+    near(r.operational.electricityPerYear, 4300);
+    expect(r.warnings.some((w) => /Rooftop solar/.test(w))).toBe(false);
+  });
+
+  it("warns about a zero or missing factor unless a renewable source is documented", () => {
+    const grid = calculate(withOperation((x) => (x.operational.electricity = [elec({ amount: "100", factor: "" })])));
+    expect(grid.warnings.some((w) => /Electricity "Grid electricity": no emission factor/.test(w))).toBe(true);
+    const renewableNoSource = calculate(withOperation((x) => (x.operational.electricity = [elec({ supply: "renewable", amount: "100", factor: "0", source: "" })])));
+    expect(renewableNoSource.warnings.some((w) => /no emission factor/.test(w))).toBe(true);
+  });
+
+  it("leaves the CEA value unset until a year-matched factor is entered", () => {
+    const e = newElectricity();
+    expect(e.factor).toBe("");
+    expect(e.source).toMatch(/CEA CO₂ Baseline Database/);
+  });
+
+  it("sums twelve individually entered monthly values", () => {
+    const s = withOperation((x) => {
+      const row = elec({ monthlyMode: true, monthlyAmounts: Array.from({ length: 12 }, () => "1000"), factor: "0.5" });
+      x.operational.electricity = [row];
+    });
+    const result = calculate(s).operational;
+    expect(result.electricity[0].annualAmount).toBe(12000);
+    expect(result.electricityPerYear).toBe(6000);
+  });
+});
+
+describe("operational fuel and water", () => {
+  it("fuel: litres per year × factor (500 L diesel × 2.68 = 1,340 kg per building)", () => {
+    const s = withOperation((x) => (x.operational.fuel = [{ ...newFuel(), amount: "500" }]));
+    near(calculate(s).operational.fuelPerYear, 1340);
+  });
+
+  it("keeps fuel combustion separate from upstream production and supply", () => {
+    const s = withOperation((x) => (x.operational.fuel = [{ ...newFuel(), amount: "100", factor: "2.5", upstreamFactor: "0.4", upstreamSource: "Documented upstream study" }]));
+    const result = calculate(s).operational;
+    near(result.fuelDirectPerYear, 250);
+    near(result.fuelUpstreamPerYear, 40);
+    near(result.fuelPerYear, 290);
+  });
+
+  it("water: litres convert to m³ before the per-m³ factor", () => {
+    expect(toM3(120000, "litre")).toBe(120);
+    const s = withOperation((x) => (x.operational.water = [{ ...newWater(), amount: "120000", unit: "litre", factor: "0.5", source: "Test value" }]));
+    near(calculate(s).operational.waterPerYear, 60);
+  });
+
+  it("calculates wastewater only from its separate entered volume and factor", () => {
+    const s = withOperation((x) => (x.operational.water = [{ ...newWater(), amount: "100", factor: "0.2", wastewaterAmount: "60", wastewaterFactor: "0.5", wastewaterSource: "Treatment source" }]));
+    const result = calculate(s).operational;
+    near(result.waterSupplyPerYear, 20);
+    near(result.wastewaterPerYear, 30);
+    near(result.waterPerYear, 50);
+  });
+
+  it("does not guess a water or non-diesel fuel factor", () => {
+    const s = withOperation((x) => {
+      x.operational.water = [{ ...newWater(), amount: "100" }];
+      x.operational.fuel = [{ ...newFuel(), fuel: "LPG", amount: "50", factor: "", source: "" }];
+    });
+    const r = calculate(s);
+    expect(r.operational.waterPerYear).toBe(0);
+    expect(r.operational.fuelPerYear).toBe(0);
+    expect(r.warnings.filter((w) => /no (direct combustion|water supply) factor/.test(w))).toHaveLength(2);
+  });
+
+  it("each category works on its own", () => {
+    const water = withOperation((x) => (x.operational.water = [{ ...newWater(), amount: "10", factor: "0.5", source: "Test" }]));
+    const r = calculate(water);
+    near(r.operational.perYearBuilding, 5);
+    expect(r.operational.electricityPerYear).toBe(0);
+    expect(r.operational.fuelPerYear).toBe(0);
+    expect(r.warnings.some((w) => /Electricity "|Fuel "/.test(w))).toBe(false);
+  });
+});
+
+describe("operational totals and intensity", () => {
+  const s = withOperation((x) => {
+    x.operational.electricity = [elec({ amount: "12000", factor: "0.43" })];
+    x.operational.fuel = [{ ...newFuel(), amount: "500" }];
+    x.operational.years = "50";
+    x.operational.occupants = "4";
+  });
+  const r = calculate(s);
+  const o = r.operational;
+
+  it("adds the three categories and multiplies by buildings and years", () => {
+    near(o.perYearBuilding, 5160 + 1340);
+    near(o.perYearAll, 65000);
+    near(o.totalAll, 65000 * 50);
+  });
+
+  it("intensity per m² per year, kWh per m² per year and per occupant", () => {
+    near(o.perM2Year!, 65000 / 3300, 6);
+    near(o.electricityKWhPerM2Year!, 120000 / 3300, 6);
+    near(o.perOccupantYear!, 65000 / 40);
+  });
+
+  it("shows construction + operation without changing the construction total", () => {
+    near(r.total, 131370.377143, 4);
+    near(o.withConstructionAll, r.total + 65000 * 50, 4);
+  });
+
+  it("returns null intensities without floor area or occupants, and no data gives zero", () => {
+    const noArea = withOperation((x) => {
+      x.project.area = "";
+      x.operational.electricity = [elec({ amount: "100" })];
+    });
+    expect(calculate(noArea).operational.perM2Year).toBeNull();
+    expect(calculate(noArea).operational.perOccupantYear).toBeNull();
+    const none = calculate(referenceState()).operational;
+    expect(none.hasData).toBe(false);
+    expect(none.totalAll).toBe(0);
+  });
+
+  it("treats a blank duration as one year (and says so), negatives as 0", () => {
+    const bad = withOperation((x) => {
+      x.operational.years = "";
+      x.operational.electricity = [elec({ amount: "-5" })];
+    });
+    const rr = calculate(bad);
+    expect(rr.operational.years).toBe(1);
+    expect(rr.operational.electricityPerYear).toBe(0);
+    expect(rr.warnings.some((w) => /negative/i.test(w))).toBe(true);
+    expect(rr.warnings.some((w) => /Years of operation/.test(w))).toBe(true);
+  });
+});
+
+describe("operational data storage and export", () => {
+  it("data saved before this module existed loads with sensible defaults", () => {
+    const old = JSON.parse(JSON.stringify(referenceState()));
+    delete old.operational;
+    const back = sanitizeState(old);
+    expect(back.operational.electricity).toHaveLength(1);
+    expect(back.operational.years).toBe("1");
+    near(calculate(back).total, 131370.377143, 4);
+  });
+
+  it("round-trips operational records", () => {
+    const s = withOperation((x) => {
+      x.operational.electricity = [elec({ amount: "12", unit: "MWh", period: "quarter", factor: "0.43" })];
+      x.operational.water = [{ ...newWater(), amount: "5", unit: "litre", factor: "0.4", source: "Test" }];
+      x.operational.mode = "detailed";
+    });
+    const back = sanitizeState(JSON.parse(JSON.stringify(s)));
+    expect(back.operational.mode).toBe("detailed");
+    expect(back.operational.electricity[0]).toMatchObject({ unit: "MWh", period: "quarter" });
+    near(calculate(back).operational.perYearBuilding, calculate(s).operational.perYearBuilding);
+    expect(sanitizeOperational({ electricity: [{ unit: "banana", period: "decade" }] }).electricity[0]).toMatchObject({ unit: "kWh", period: "year" });
+  });
+
+  it("the CSV includes the operational block only when there is data", () => {
+    const withData = withOperation((x) => (x.operational.electricity = [elec({ amount: "12000", factor: "0.43" })]));
+    const csv = toCsv(withData, calculate(withData));
+    expect(csv).toContain("Operational carbon");
+    expect(csv).toContain('"Operational total","5160","51600","51600"');
+    expect(toCsv(referenceState(), calculate(referenceState()))).not.toContain("Operational carbon");
+  });
+});

@@ -10,10 +10,20 @@ import {
   referenceMaterials,
   referenceState,
   sanitizeState,
+  newElectricity,
+  newFuel,
+  newWater,
+  FUEL_TYPES,
+  DIESEL_DEFAULT,
   toCsv,
   type Material,
   type State,
   type Transport,
+  type Period,
+  type EnergyUnit,
+  type FuelUnit,
+  type WaterUnit,
+  type Supply,
 } from "@/lib/calc";
 import { useStoredState } from "@/lib/use-stored-state";
 
@@ -44,9 +54,9 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 const inputCls =
   "w-full min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 py-2 text-sm text-ink hover:border-ink-subtle focus-visible:outline-2 focus-visible:outline-leaf";
 
-function Card({ title, children, className = "" }: { title?: ReactNode; children: ReactNode; className?: string }) {
+function Card({ title, children, className = "", id }: { title?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`min-w-0 rounded-2xl border border-line bg-surface p-4 shadow-[0_1px_3px_rgba(31,35,40,0.05)] sm:p-5 ${className}`}>
+    <section id={id} className={`min-w-0 rounded-2xl border border-line bg-surface p-4 shadow-[0_1px_3px_rgba(31,35,40,0.05)] sm:p-5 ${className}`}>
       {title ? <h2 className="mb-3 text-lg font-semibold">{title}</h2> : null}
       {children}
     </section>
@@ -124,6 +134,17 @@ function BarRow({ label, value, max, color, suffix = "kg" }: { label: string; va
 const TH = "whitespace-nowrap bg-surface-sunken px-2 py-2 text-left text-xs font-semibold text-ink-muted";
 const TD = "px-1.5 py-1.5 align-middle";
 
+function SelectCell<T extends string>({ value, onChange, label, options }: { value: T; onChange: (v: T) => void; label: string; options: readonly T[] }) {
+  return <select aria-label={label} className={inputCls} value={value} onChange={(e) => onChange(e.target.value as T)}>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+}
+
+const PERIOD_OPTIONS: readonly Period[] = ["month", "quarter", "year"];
+const ELECTRICITY_UNITS: readonly EnergyUnit[] = ["kWh", "MWh"];
+const FUEL_UNITS: readonly FuelUnit[] = ["litre", "kg", "m³"];
+const WATER_UNITS: readonly WaterUnit[] = ["m³", "litre"];
+const SUPPLY_OPTIONS: readonly Supply[] = ["grid", "renewable", "custom"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
 // ---------------------------------------------------------------------------
 // The calculator
 // ---------------------------------------------------------------------------
@@ -149,6 +170,14 @@ export function Calculator() {
     { label: "Other", value: r.other, color: "var(--series-5)" },
   ];
   const sourceMax = Math.max(...sources.map((s) => s.value), 1);
+  const operationalSources = [
+    { label: "Electricity", value: r.operational.electricityPerYear, color: "var(--series-1)" },
+    { label: "Fuel combustion", value: r.operational.fuelDirectPerYear, color: "var(--series-4)" },
+    { label: "Fuel upstream", value: r.operational.fuelUpstreamPerYear, color: "var(--series-5)" },
+    { label: "Water supply", value: r.operational.waterSupplyPerYear, color: "var(--series-3)" },
+    { label: "Wastewater treatment", value: r.operational.wastewaterPerYear, color: "var(--series-2)" },
+  ];
+  const operationalMax = Math.max(...operationalSources.map((s) => s.value), 1);
   const byMaterial = r.materials.filter((m) => m.include && m.carbon > 0).sort((a, b) => b.carbon - a.carbon);
   const materialMax = Math.max(...byMaterial.map((m) => m.carbon), 1);
   const hasCosts = state.materials.some((m) => Number(m.cost) > 0);
@@ -174,13 +203,16 @@ export function Calculator() {
       </header>
 
       <div className="mx-auto max-w-[1200px] px-4 pb-10 pt-5 sm:px-6">
+        <nav aria-label="Calculator sections" className="no-print mb-4 flex flex-wrap gap-2 text-sm">
+          {[["project-details", "Project"], ["materials", "Materials"], ["transport", "Transport"], ["equipment", "Equipment"], ["results", "Results"], ["operational-carbon", "Operational carbon"], ["checks-export", "Checks & export"]].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-full border border-line bg-surface px-3 py-1.5 text-ink-muted hover:border-primary hover:text-primary">{label}</a>)}
+        </nav>
         <div role="note" className="mb-4 rounded-xl border border-amber-line bg-amber-soft px-4 py-3 text-sm text-[#5c3d00]">
-          <strong>College project:</strong> the starting factors come from the project report and are example values, not verified supplier data. Results are estimates for learning, not a certified carbon assessment. Only material waste, transport and equipment fuel are counted, not all the material that stays in the building or its use.
+          <strong>College project:</strong> the starting factors come from the project report and are example values, not verified supplier data. Results are estimates for learning, not a certified carbon assessment. Construction results cover material waste, transport and equipment fuel; operational electricity, fuel and water are assessed separately below. Avoid entering the same fuel in more than one section.
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           {/* 1 */}
-          <Card title="1. Project details" className="lg:col-span-12">
+          <Card id="project-details" title="1. Project details" className="lg:col-span-12">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Project name">{(id) => <input id={id} className={inputCls} value={state.project.name} onChange={(e) => update((d) => void (d.project.name = e.target.value))} />}</Field>
               <Field label="Location">{(id) => <input id={id} className={inputCls} value={state.project.location} onChange={(e) => update((d) => void (d.project.location = e.target.value))} />}</Field>
@@ -199,7 +231,7 @@ export function Calculator() {
           </Card>
 
           {/* 2 */}
-          <Card title="2. Materials and waste" className="lg:col-span-12">
+          <Card id="materials" title="2. Materials and waste" className="lg:col-span-12">
             <p className="mb-3 text-sm text-ink-muted">
               Enter the quantity per building. Waste quantity = quantity × waste %. Emissions = waste quantity × (production factor + waste-treatment factor). Each factor is per <em>one unit of the quantity</em>, so the units must match. Example: concrete in m³ uses kg CO₂e per m³ (0.142 kg per kg × 2,400 kg/m³ = 340.8).
             </p>
@@ -309,7 +341,7 @@ export function Calculator() {
           </Card>
 
           {/* 3 */}
-          <Card title="3. Transport" className="lg:col-span-7">
+          <Card id="transport" title="3. Transport" className="lg:col-span-7">
             <div className="overflow-x-auto rounded-xl border border-line">
               <table className="w-full min-w-[640px] border-collapse text-sm">
                 <thead>
@@ -379,7 +411,7 @@ export function Calculator() {
           </Card>
 
           {/* 4 */}
-          <Card title="4. Site equipment" className="lg:col-span-5">
+          <Card id="equipment" title="4. Site equipment" className="lg:col-span-5">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Equipment hours / building">{(id) => <NumInput id={id} value={state.equipment.hours} onChange={(v) => update((d) => void (d.equipment.hours = v))} />}</Field>
               <Field label="Fuel use (litres per hour)" help="From the machine or fuel logs">{(id) => <NumInput id={id} value={state.equipment.rate} onChange={(v) => update((d) => void (d.equipment.rate = v))} />}</Field>
@@ -392,7 +424,7 @@ export function Calculator() {
           </Card>
 
           {/* 5 */}
-          <Card title="5. Results" className="lg:col-span-12">
+          <Card id="results" title="5. Results" className="lg:col-span-12">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Metric label="Baseline total" value={fmt(r.total, 0)} sub={`kg CO₂e · ${fmt(r.total / 1000, 2)} t · all ${nf.format(r.count)} building${r.count === 1 ? "" : "s"}`} />
               <Metric label="Per building" value={fmt(r.perBuilding, 0)} sub="kg CO₂e / building" />
@@ -423,7 +455,101 @@ export function Calculator() {
           </Card>
 
           {/* 6 */}
-          <Card title="6. Waste-reduction scenario" className="lg:col-span-7">
+          <Card id="operational-carbon" title="6. Operational carbon assessment" className="lg:col-span-12">
+            <p className="mb-4 text-sm text-ink-muted">Estimate electricity, fuel and water use over the building service life. Enter consumption per building and choose month, quarter or year, or enter all 12 electricity months separately. Annual totals use a yearly input once. The lifetime result assumes constant annual use and factors. Each category works independently.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Building service life (years)" help="Assumes constant annual use and factors">{(id) => <NumInput id={id} step="1" value={state.operational.years} onChange={(v) => update((d) => void (d.operational.years = v))} />}</Field>
+              <Field label="Occupants per building (optional)">{(id) => <NumInput id={id} step="1" value={state.operational.occupants} onChange={(v) => update((d) => void (d.operational.occupants = v))} />}</Field>
+              <Field label="Building use (optional)">{(id) => <input id={id} className={inputCls} value={state.operational.use} onChange={(e) => update((d) => void (d.operational.use = e.target.value))} placeholder="e.g. residential" />}</Field>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Metric label="Annual operational emissions (mixed basis)" value={fmt(r.operational.perYearAll, 0)} sub={`kg CO₂ / CO₂e / year · all ${nf.format(r.count)} buildings`} />
+              <Metric label="Lifetime operational emissions (mixed basis)" value={fmt(r.operational.totalAll / 1000, 2)} sub={`tonnes CO₂ / CO₂e · ${fmt(r.operational.years, 0)} year service life`} />
+              <Metric label="Emissions intensity (mixed basis)" value={r.operational.perM2Year === null ? "—" : fmt(r.operational.perM2Year, 2)} sub="kg CO₂ / CO₂e / m² / year" />
+              <Metric label="Per occupant (mixed basis)" value={r.operational.perOccupantYear === null ? "—" : fmt(r.operational.perOccupantYear, 2)} sub="kg CO₂ / CO₂e / occupant / year" />
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[ ["Electricity", r.operational.electricityPerYear, "kg CO₂"], ["Fuel combustion", r.operational.fuelDirectPerYear, "kg CO₂e"], ["Fuel upstream", r.operational.fuelUpstreamPerYear, "kg CO₂e"], ["Water supply", r.operational.waterSupplyPerYear, "kg CO₂e"], ["Wastewater treatment", r.operational.wastewaterPerYear, "kg CO₂e"] ].map(([label, value, basis]) => <div key={String(label)} className="rounded-xl border border-line bg-page p-3 text-sm"><div className="text-ink-muted">{label} · {basis} / building / year</div><strong className="tabular-nums">{fmt(Number(value), 1)}</strong><div className="text-xs text-ink-subtle">{fmt(Number(value) * r.count, 1)} {basis} / year across all buildings</div></div>)}
+            </div>
+            <div className="mt-4 rounded-xl border border-line p-3 sm:p-4">
+              <h3 className="font-semibold">Annual emissions by source</h3>
+              <p className="text-xs text-ink-subtle">Per building. Electricity uses the CEA CO₂-only factor; other entered factors may report CO₂e. The operational total is therefore a mixed-basis estimate. Fuel combustion and upstream production are separate. Missing factors contribute zero and appear in Checks.</p>
+              <div className="mt-2">{operationalSources.map((source) => <BarRow key={source.label} {...source} max={operationalMax} />)}</div>
+            </div>
+            {r.operational.hasData ? <p className="mt-3 rounded-lg bg-info-soft px-3 py-2 text-sm text-ink-muted">Construction emissions remain in the results above. Construction plus operation over this assessment period is <strong className="text-ink">{fmt(r.operational.withConstructionAll, 0)} kg (mixed CO₂e / CO₂ basis)</strong> across all buildings.</p> : null}
+
+            <div className="mt-5 rounded-xl border border-line p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">Electricity</h3><p className="text-xs text-ink-subtle">Use the applicable CEA factor for India and the consumption year. Factor is per kWh after MWh is converted.</p></div><Btn variant="secondary" onClick={() => update((d) => void d.operational.electricity.push(newElectricity()))}>+ Add electricity</Btn></div>
+              {state.operational.electricity.map((e, i) => <div key={e.id} className="mb-3 rounded-lg border border-line bg-page p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Record name">{(id) => <input id={id} className={inputCls} value={e.name} onChange={(x) => update((d) => void (d.operational.electricity[i].name = x.target.value))} />}</Field>
+                  <Field label="Supply type">{() => <SelectCell label="Electricity supply" value={e.supply} options={SUPPLY_OPTIONS} onChange={(v) => update((d) => void (d.operational.electricity[i].supply = v))} />}</Field>
+                  {!e.monthlyMode ? <Field label="Consumption per building">{(id) => <NumInput id={id} value={e.amount} onChange={(v) => update((d) => void (d.operational.electricity[i].amount = v))} />}</Field> : null}
+                  <Field label="Unit">{() => <SelectCell label="Electricity unit" value={e.unit} options={ELECTRICITY_UNITS} onChange={(v) => update((d) => void (d.operational.electricity[i].unit = v))} />}</Field>
+                  {!e.monthlyMode ? <Field label="Consumption period">{() => <SelectCell label="Electricity period" value={e.period} options={PERIOD_OPTIONS} onChange={(v) => update((d) => void (d.operational.electricity[i].period = v))} />}</Field> : null}
+                  <Field label="Factor (kg CO₂/kWh, CEA)">{(id) => <NumInput id={id} value={e.factor} onChange={(v) => update((d) => void (d.operational.electricity[i].factor = v))} />}</Field>
+                  <Field label="Factor source">{(id) => <input id={id} className={inputCls} value={e.source} onChange={(x) => update((d) => void (d.operational.electricity[i].source = x.target.value))} />}</Field>
+                  <Field label="Factor year">{(id) => <input id={id} className={inputCls} value={e.year} onChange={(x) => update((d) => void (d.operational.electricity[i].year = x.target.value))} placeholder="optional" />}</Field>
+                  <Field label="Factor region">{(id) => <input id={id} className={inputCls} value={e.region} onChange={(x) => update((d) => void (d.operational.electricity[i].region = x.target.value))} placeholder="optional" />}</Field>
+                </div>
+                <label className="mt-3 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={e.monthlyMode} onChange={(x) => update((d) => void (d.operational.electricity[i].monthlyMode = x.target.checked))} /> Enter 12 monthly values and sum them automatically</label>
+                {e.monthlyMode ? <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">{MONTHS.map((month, monthIndex) => <Field key={month} label={`${month} consumption (${e.unit})`}>{(id) => <NumInput id={id} value={e.monthlyAmounts[monthIndex] ?? ""} onChange={(v) => update((d) => void (d.operational.electricity[i].monthlyAmounts[monthIndex] = v))} />}</Field>)}</div> : null}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>Annual use: <strong>{fmt(r.operational.electricity[i].annualAmount, 1)} kWh</strong> · Annual emissions: <strong>{fmt(r.operational.electricity[i].annualCarbon, 1)} kg CO₂ (CEA factor)</strong></span><button type="button" aria-label={`Remove ${e.name || "electricity"}`} onClick={() => update((d) => void d.operational.electricity.splice(i, 1))} className="rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-semibold text-danger">Remove</button></div>
+              </div>)}
+              {state.operational.electricity.length === 0 ? <p className="py-3 text-center text-sm text-ink-subtle">No electricity records. Add one to estimate electricity emissions.</p> : null}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-line p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">Fuel</h3><p className="text-xs text-ink-subtle">Choose the same unit for consumption and its factor.</p></div><Btn variant="secondary" onClick={() => update((d) => void d.operational.fuel.push(newFuel()))}>+ Add fuel</Btn></div>
+              {state.operational.fuel.map((f, i) => <div key={f.id} className="mb-3 rounded-lg border border-line bg-page p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Record name">{(id) => <input id={id} className={inputCls} value={f.name} onChange={(x) => update((d) => void (d.operational.fuel[i].name = x.target.value))} />}</Field>
+                  <Field label="Fuel type">{() => <SelectCell label="Fuel type" value={FUEL_TYPES.includes(f.fuel as typeof FUEL_TYPES[number]) ? f.fuel : "Other fuel"} options={FUEL_TYPES} onChange={(v) => update((d) => { const row = d.operational.fuel[i]; if (v !== row.fuel) { row.factor = ""; row.source = ""; row.factorYear = ""; row.factorRegion = ""; row.upstreamFactor = ""; row.upstreamSource = ""; row.upstreamYear = ""; row.upstreamRegion = ""; } row.fuel = v; if (v === "Diesel" && !row.factor) { row.factor = DIESEL_DEFAULT.factor; row.source = `${DIESEL_DEFAULT.source} (direct combustion only)`; } })} />}</Field>
+                  <Field label="Consumption per building">{(id) => <NumInput id={id} value={f.amount} onChange={(v) => update((d) => void (d.operational.fuel[i].amount = v))} />}</Field>
+                  <Field label="Unit">{() => <SelectCell label="Fuel unit" value={f.unit} options={FUEL_UNITS} onChange={(v) => update((d) => { const row = d.operational.fuel[i]; if (v !== row.unit) { row.factor = ""; row.source = ""; row.factorYear = ""; row.factorRegion = ""; row.upstreamFactor = ""; row.upstreamSource = ""; row.upstreamYear = ""; row.upstreamRegion = ""; } row.unit = v; if (row.fuel === "Diesel" && v === "litre" && !row.factor) { row.factor = DIESEL_DEFAULT.factor; row.source = `${DIESEL_DEFAULT.source} (direct combustion only)`; } })} />}</Field>
+                  <Field label="Consumption period">{() => <SelectCell label="Fuel period" value={f.period} options={PERIOD_OPTIONS} onChange={(v) => update((d) => void (d.operational.fuel[i].period = v))} />}</Field>
+                  <Field label={`Direct combustion factor (kg CO₂e/${f.unit})`}>{(id) => <NumInput id={id} value={f.factor} onChange={(v) => update((d) => void (d.operational.fuel[i].factor = v))} />}</Field>
+                  <Field label="Combustion factor source">{(id) => <input id={id} className={inputCls} value={f.source} onChange={(x) => update((d) => void (d.operational.fuel[i].source = x.target.value))} />}</Field>
+                  <Field label="Combustion factor year">{(id) => <input id={id} className={inputCls} value={f.factorYear} onChange={(x) => update((d) => void (d.operational.fuel[i].factorYear = x.target.value))} />}</Field>
+                  <Field label="Combustion factor region">{(id) => <input id={id} className={inputCls} value={f.factorRegion} onChange={(x) => update((d) => void (d.operational.fuel[i].factorRegion = x.target.value))} />}</Field>
+                  <Field label={`Upstream factor (kg CO₂e/${f.unit})`}>{(id) => <NumInput id={id} value={f.upstreamFactor} onChange={(v) => update((d) => void (d.operational.fuel[i].upstreamFactor = v))} />}</Field>
+                  <Field label="Upstream factor source">{(id) => <input id={id} className={inputCls} value={f.upstreamSource} onChange={(x) => update((d) => void (d.operational.fuel[i].upstreamSource = x.target.value))} />}</Field>
+                  <Field label="Upstream factor year">{(id) => <input id={id} className={inputCls} value={f.upstreamYear} onChange={(x) => update((d) => void (d.operational.fuel[i].upstreamYear = x.target.value))} />}</Field>
+                  <Field label="Upstream factor region">{(id) => <input id={id} className={inputCls} value={f.upstreamRegion} onChange={(x) => update((d) => void (d.operational.fuel[i].upstreamRegion = x.target.value))} />}</Field>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>Annual use: <strong>{fmt(r.operational.fuel[i].annualAmount, 1)} {f.unit}</strong> · Direct: <strong>{fmt(r.operational.fuel[i].annualDirectCarbon, 1)}</strong> · Upstream: <strong>{fmt(r.operational.fuel[i].annualUpstreamCarbon, 1)}</strong> kg CO₂e / building</span><button type="button" aria-label={`Remove ${f.name || "fuel"}`} onClick={() => update((d) => void d.operational.fuel.splice(i, 1))} className="rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-semibold text-danger">Remove</button></div>
+              </div>)}
+              {state.operational.fuel.length === 0 ? <p className="py-3 text-center text-sm text-ink-subtle">No fuel records. Add one to estimate fuel emissions.</p> : null}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-line p-3 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">Water</h3><p className="text-xs text-ink-subtle">The factor is per m³; litres are converted to m³ before calculation.</p></div><Btn variant="secondary" onClick={() => update((d) => void d.operational.water.push(newWater()))}>+ Add water</Btn></div>
+              {state.operational.water.map((w, i) => <div key={w.id} className="mb-3 rounded-lg border border-line bg-page p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Record name">{(id) => <input id={id} className={inputCls} value={w.name} onChange={(x) => update((d) => void (d.operational.water[i].name = x.target.value))} />}</Field>
+                  <Field label="Activity">{(id) => <input id={id} className={inputCls} value={w.activity} onChange={(x) => update((d) => void (d.operational.water[i].activity = x.target.value))} />}</Field>
+                  <Field label="Consumption per building">{(id) => <NumInput id={id} value={w.amount} onChange={(v) => update((d) => void (d.operational.water[i].amount = v))} />}</Field>
+                  <Field label="Unit">{() => <SelectCell label="Water unit" value={w.unit} options={WATER_UNITS} onChange={(v) => update((d) => void (d.operational.water[i].unit = v))} />}</Field>
+                  <Field label="Consumption period">{() => <SelectCell label="Water period" value={w.period} options={PERIOD_OPTIONS} onChange={(v) => update((d) => void (d.operational.water[i].period = v))} />}</Field>
+                  <Field label="Water supply factor (kg CO₂e/m³)">{(id) => <NumInput id={id} value={w.factor} onChange={(v) => update((d) => void (d.operational.water[i].factor = v))} />}</Field>
+                  <Field label="Supply factor source">{(id) => <input id={id} className={inputCls} value={w.source} onChange={(x) => update((d) => void (d.operational.water[i].source = x.target.value))} />}</Field>
+                  <Field label="Supply factor year">{(id) => <input id={id} className={inputCls} value={w.factorYear} onChange={(x) => update((d) => void (d.operational.water[i].factorYear = x.target.value))} />}</Field>
+                  <Field label="Supply factor region">{(id) => <input id={id} className={inputCls} value={w.factorRegion} onChange={(x) => update((d) => void (d.operational.water[i].factorRegion = x.target.value))} />}</Field>
+                  <Field label="Wastewater volume (m³ per period)" help="Optional. Leave blank if unknown; it is not assumed equal to supplied water.">{(id) => <NumInput id={id} value={w.wastewaterAmount} onChange={(v) => update((d) => void (d.operational.water[i].wastewaterAmount = v))} />}</Field>
+                  <Field label="Wastewater treatment factor (kg CO₂e/m³)">{(id) => <NumInput id={id} value={w.wastewaterFactor} onChange={(v) => update((d) => void (d.operational.water[i].wastewaterFactor = v))} />}</Field>
+                  <Field label="Wastewater factor source">{(id) => <input id={id} className={inputCls} value={w.wastewaterSource} onChange={(x) => update((d) => void (d.operational.water[i].wastewaterSource = x.target.value))} />}</Field>
+                  <Field label="Wastewater factor year">{(id) => <input id={id} className={inputCls} value={w.wastewaterYear} onChange={(x) => update((d) => void (d.operational.water[i].wastewaterYear = x.target.value))} />}</Field>
+                  <Field label="Wastewater factor region">{(id) => <input id={id} className={inputCls} value={w.wastewaterRegion} onChange={(x) => update((d) => void (d.operational.water[i].wastewaterRegion = x.target.value))} />}</Field>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>Annual supply: <strong>{fmt(r.operational.water[i].annualDirectCarbon, 1)}</strong> · Annual wastewater: <strong>{fmt(r.operational.water[i].annualWastewaterCarbon, 1)}</strong> kg CO₂e / building</span><button type="button" aria-label={`Remove ${w.name || "water"}`} onClick={() => update((d) => void d.operational.water.splice(i, 1))} className="rounded-md border border-danger-line bg-danger-soft px-2 py-1 text-xs font-semibold text-danger">Remove</button></div>
+              </div>)}
+              {state.operational.water.length === 0 ? <p className="py-3 text-center text-sm text-ink-subtle">No water records. Add one to estimate water emissions.</p> : null}
+            </div>
+            <div className="mt-4 rounded-xl border border-amber-line bg-amber-soft px-4 py-3 text-sm text-[#5c3d00]"><strong>Factor sources and assumptions:</strong> new grid electricity factors start blank. Use the applicable weighted-average value from the Central Electricity Authority (CEA) CO₂ Baseline Database for the consumption year, then record its version, year, India grid region and source. The CEA factor reports CO₂ only, so the electricity component excludes CH₄ and N₂O. Diesel starts with the project report&apos;s 2.68 kg CO₂e/litre combustion value (BIM report, Table 9.3); it excludes upstream production and supply. Other fuels, upstream fuel factors, water supply and wastewater treatment start blank because no verified unit-matched factor is configured. Enter a separate wastewater volume and factor when available; supplied water is never assumed to become wastewater. A zero electricity factor is accepted only for a documented renewable source.</div>
+          </Card>
+
+          {/* 7 */}
+          <Card title="7. Waste-reduction scenario" className="lg:col-span-7">
             <p className="mb-3 text-sm text-ink-muted">
               Type a target in the <strong>What-if waste %</strong> column of section 2 (blank means unchanged), or use a preset. Then set the other reductions here.
             </p>
@@ -456,7 +582,7 @@ export function Calculator() {
           </Card>
 
           {/* 7 */}
-          <Card title="7. Checks and export" className="lg:col-span-5">
+          <Card id="checks-export" title="8. Checks and export" className="lg:col-span-5">
             <ul className="space-y-1.5 text-sm">
               {r.warnings.map((w) => (
                 <li key={w} className="flex gap-2 text-[#7a4b00]">
@@ -474,7 +600,7 @@ export function Calculator() {
               </li>
               <li className="flex gap-2 text-ink-muted">
                 <span aria-hidden>ℹ</span>
-                <span>Boundary: material waste, transport, equipment and &quot;other&quot; only. Not the material that stays in the building, nor its use.</span>
+                <span>Construction-stage boundary: material waste, transport, equipment and &quot;other&quot;. Operational electricity, fuel and water are estimated in section 6. Material that stays in the building and demolition are not included.</span>
               </li>
             </ul>
             <div className="no-print mt-4 flex flex-wrap gap-2">
@@ -526,6 +652,7 @@ export function Calculator() {
                   <li><strong>Material waste</strong> = quantity × waste % ÷ 100 × (production factor + waste-treatment factor).</li>
                   <li><strong>Transport (fuel)</strong> = trips × distance ÷ km per litre × kg CO₂e per litre. <strong>Tonne-km</strong> = trips × distance × load × factor.</li>
                   <li><strong>Equipment</strong> = hours × litres per hour × kg CO₂e per litre.</li>
+                  <li><strong>Operational carbon</strong> = annual electricity, fuel and water use × factor × assessment years × number of buildings. Monthly and quarterly consumption is annualised; yearly consumption is used once.</li>
                   <li><strong>Per m²</strong> = total ÷ (built-up area per building × number of buildings). 1,000 kg = 1 tonne.</li>
                 </ul>
                 <p>Calculations keep full precision; numbers are rounded only on screen. Blank, invalid or negative entries count as 0 and are listed in the checks.</p>
