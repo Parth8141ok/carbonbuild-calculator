@@ -19,8 +19,8 @@ const STAGES: { code: string; name: string; included: "yes" | "partial" | "expan
   { code: "D", name: "Benefits and loads beyond the system boundary (reuse, recycling)", included: "no", note: "Not assessed." },
 ];
 
-export default async function MethodologyPage() {
-  const sample = await getSampleResult();
+export default function MethodologyPage() {
+  const sample = getSampleResult();
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <p className="text-xs font-semibold uppercase tracking-wider text-leaf">Documentation</p>

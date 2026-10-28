@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   },
   description:
     "Estimate the construction-stage carbon footprint of a building project: material wastage, transport and site machinery, with a full calculation audit trail.",
-  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

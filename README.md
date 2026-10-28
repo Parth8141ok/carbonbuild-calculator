@@ -51,8 +51,8 @@ Open http://localhost:3000.
 | `npm test` | Unit tests (Vitest) |
 | `npm run typecheck` | TypeScript check |
 | `npm run lint` | ESLint |
-| `npm run build` | Production build |
-| `npm start` | Serve the production build |
+| `npm run build` | Static production build into `out/` |
+| `npm run preview` | Serve `out/` locally, e.g. `npm run preview -- --base=/carbonbuild-calculator` |
 
 **Environment variables:** none. The app needs no API keys, database or paid service, so there is no `.env.example`.
 
@@ -83,6 +83,8 @@ src/
     store.ts           Zustand store persisted to localStorage
     projects.ts        Duplicate, snapshot, import/export helpers
 docs/reference-extraction.md   Values taken from the source PDFs, with table references
+scripts/preview-static.mjs     Local static server for the exported site
+.github/workflows/deploy-pages.yml   Build and deploy to GitHub Pages
 ```
 
 ## Data storage
@@ -91,11 +93,32 @@ Projects, saved versions, user factors and settings are stored in the browser's 
 
 ## Deployment
 
-The app is a Next.js application. All routes are prerendered as static pages, but the landing and methodology pages use Next's `"use cache"`, so deploy it on a platform that runs Next.js.
+CarbonBuild runs entirely in the browser, so it is built as a static site (`output: "export"` in `next.config.ts`). `npm run build` writes plain HTML, CSS and JavaScript to `out/`, which any static host can serve.
 
-**Vercel (recommended):** import the GitHub repository in Vercel. The framework (Next.js) is detected automatically. Build command `npm run build`; no environment variables. Alternatively, run `npx vercel` from this folder.
+### GitHub Pages
 
-GitHub Pages is not a good fit without changing the app to a static export (`output: "export"`), which is not configured.
+The workflow `.github/workflows/deploy-pages.yml` runs lint, type check and tests, builds the site with the repository's base path, and publishes it on every push to `main` (or manually from the Actions tab).
+
+One-time setup:
+
+1. GitHub Pages needs a **public** repository on a free GitHub plan. Private repositories need GitHub Pro, Team or Enterprise. The published site is public either way.
+2. In the repository, go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
+3. Push to `main`, or run the workflow from the **Actions** tab.
+
+The site is then served at `https://<owner>.github.io/<repository>/`, for example `https://parth8141ok.github.io/carbonbuild-calculator/`. The base path comes from `actions/configure-pages`, so a custom domain also works without code changes.
+
+To check a Pages build locally (in PowerShell, or Git Bash with `MSYS_NO_PATHCONV=1` so the path is not rewritten):
+
+```bash
+PAGES_BASE_PATH=/carbonbuild-calculator npm run build
+npm run preview -- --base=/carbonbuild-calculator
+```
+
+Then open http://localhost:4173/carbonbuild-calculator/.
+
+### Vercel or another static host
+
+Import the repository in Vercel; it detects Next.js and serves the static export. No environment variables are needed. Any other static host can serve `out/` from a plain `npm run build`.
 
 ## Limitations
 

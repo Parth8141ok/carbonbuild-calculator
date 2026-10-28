@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/primitives";
 import { getSampleResult } from "@/lib/sample-result";
 import { formatFixed } from "@/lib/format";
 
-export default async function Home() {
-  const sample = await getSampleResult();
+export default function Home() {
+  const sample = getSampleResult();
   const t = sample.totals;
   const perBungalowWaste = t.materialWasteKg / 10;
   const perBungalowFuel = (t.transportKg + t.machineryKg) / 10;
