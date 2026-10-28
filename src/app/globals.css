@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/*
+ * CarbonBuild design tokens. Light theme only: warm off-white page, white
+ * surfaces, forest-green primary, charcoal ink, restrained amber for warnings.
+ */
+:root {
+  color-scheme: light;
+  --page: #f8f6f1;
+  --surface: #ffffff;
+  --surface-muted: #eef3ee;
+  --surface-sunken: #f2f0ea;
+  --ink: #1f2328;
+  --ink-muted: #565c63;
+  --ink-subtle: #7d838a;
+  --line: #e2dfd7;
+  --line-strong: #cfcbc0;
+  --primary: #1e4d3a;
+  --primary-hover: #163b2c;
+  --primary-soft: #dbe8de;
+  --primary-ink: #ffffff;
+  --leaf: #3f8a5f;
+  --amber: #8a5300;
+  --amber-soft: #fbf0dc;
+  --amber-line: #efd3a2;
+  --danger: #a3241a;
+  --danger-soft: #fcebe9;
+  --danger-line: #f1c3be;
+  --info-soft: #eef1f5;
+
+  /* Categorical chart slots, fixed order, validated (adjacent CVD ΔE ≥ 9.1). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --grid: #ebe8e1;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ink: var(--primary-ink);
+  --color-leaf: var(--leaf);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-amber-line: var(--amber-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--page);
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
